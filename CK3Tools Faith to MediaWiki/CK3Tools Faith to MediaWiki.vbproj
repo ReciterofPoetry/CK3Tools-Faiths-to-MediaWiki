@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>CK3Tools_Faith_to_MediaWiki</RootNamespace>
+    <TargetFramework>net5.0</TargetFramework>
+	  <PublishSingleFile>true</PublishSingleFile>
+	  <SelfContained>true</SelfContained>
+	  <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+	  <PublishReadyToRun>true</PublishReadyToRun>
+	  <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+	  <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+</Project>
