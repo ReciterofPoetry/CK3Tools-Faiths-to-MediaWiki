@@ -2,9 +2,9 @@ Imports System.IO
 Imports CK3Tools_Faiths_to_MediaWiki.BaseData
 Imports Microsoft.Win32
 Friend Module Props
-    Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2326030123"
+    'Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2326030123"
     'Property BaseDir As String = "D:\Programs\Steam\steamapps\common\Crusader Kings III\game"
-    'Property BaseDir As String = Environment.CurrentDirectory
+    Property BaseDir As String = Environment.CurrentDirectory
 End Module
 Module Program
 #Disable Warning IDE0044 ' Add readonly modifier
@@ -19,12 +19,12 @@ Module Program
 
         Dim FileList As List(Of String) = Directory.GetFiles(BaseDir & "\common\religion\religions", "*.txt", SearchOption.AllDirectories).ToList 'Get all doctrine code files.
 
-        Dim Families, Religions, Faiths As New List(Of String) 'Raw ids of religion that will later be named.
+        Dim Families, Religions, Faiths, FaithIcons, FaithsHolySites As New List(Of String) 'Raw ids of religion that will later be named.
         Dim ReligionDoctrines, FamilyReligions, ReligionFaiths, FaithDoctrines As New Dictionary(Of Integer, String) 'These dictionaries will contain families, religions, and faiths as keys with the values being their data.
         Dim FamilyOfReligion, ReligionOfFaith As New Dictionary(Of Integer, Integer) 'These dictionaries will have religion-family and faith-religion as the key-value pairs to find the parent family or religion quickly.
 
         For Each TextFile In FileList
-            Dim Text As List(Of String) = File.ReadAllText(TextFile).Split(vbCrLf & "}", StringSplitOptions.RemoveEmptyEntries).ToList 'Split the file contents into the religion nested blocks.
+            Dim Text As List(Of String) = File.ReadAllText(TextFile).Split({vbCrLf & "}", vbLf & "}"}, StringSplitOptions.RemoveEmptyEntries).ToList 'Split the file contents into the religion nested blocks.
 
             Text.RemoveAll(Function(x) Not x.Contains("{"c) OrElse x.StartsWith("#"c)) 'Remove any that don't seem to contain any data by searching for lack of curly brackets.
 
@@ -35,7 +35,7 @@ Module Program
                 Religion = Religions.Count - 1
                 ReligionDoctrines.Add(Religion, "")
 
-                Dim Family As String = Block.Split("family", 2).Last.Split("="c, 2).Last.Split(vbCrLf, 2).First.Trim 'Get the raw id of the family.
+                Dim Family As String = Block.Split("family", 2).Last.Split("="c, 2).Last.Split({vbCrLf, vbCr, vbLf}, 2, StringSplitOptions.None).First.Trim 'Get the raw id of the family.
 
                 If Not Families.Contains(Family) Then 'Add family to families list and dictionary if not added, then get the index.
                     Families.Add(Family)
@@ -47,7 +47,7 @@ Module Program
                 End If
                 FamilyOfReligion.Add(Religion, Family) 'Add the religion-family pair to this dictionary.
 
-                Dim RawDoctrines As List(Of String) = Block.Split("faiths", 2)(0).Split(vbCrLf, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("doctrine") AndAlso x.Contains("="c) AndAlso Not x.StartsWith("doctrine_")) 'Get the doctrines of the religion but not child faiths.
+                Dim RawDoctrines As List(Of String) = Block.Split("faiths", 2)(0).Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("doctrine") AndAlso x.Contains("="c) AndAlso Not x.StartsWith("doctrine_")) 'Get the doctrines of the religion but not child faiths.
 
                 For Each Doctrine In RawDoctrines
                     Doctrine = Doctrine.Split("="c, 2)(1).Trim.Split(" "c).First
@@ -98,6 +98,7 @@ Module Program
                     Faiths.Add(Faith.Key) 'Add the faith id to list.
                     Dim FaithIndex As Integer = Faiths.Count - 1 'Collect the index of the faith.
                     FaithDoctrines.Add(FaithIndex, "")
+                    FaithsHolySites.Add("")
 
                     If Not ReligionFaiths.ContainsKey(Religion) Then 'Add to Dictionary of religion-'subsidiary faiths' key-value pairs, referring to the indexes of each from the original lists.
                         ReligionFaiths.Add(Religion, FaithIndex)
@@ -107,7 +108,7 @@ Module Program
 
                     ReligionOfFaith.Add(FaithIndex, Religion) 'Add to the Dictionary of faith-'parent religion' key-value pairs, referring to indexes.
 
-                    RawDoctrines = Faith.Value.Split(vbCrLf, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("doctrine") AndAlso x.Contains("="c) AndAlso Not x.StartsWith("doctrine_")) 'Get the doctrines of the faith.
+                    RawDoctrines = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("doctrine") AndAlso x.Contains("="c) AndAlso Not x.StartsWith("doctrine_")) 'Get the doctrines of the faith.
 
                     For Each Doctrine In RawDoctrines
                         Doctrine = Doctrine.Split("="c, 2)(1).Trim.Split(" "c).First
@@ -133,17 +134,61 @@ Module Program
                         End If
                     Next
                     FaithDoctrines(FaithIndex) = FaithDoctrines(FaithIndex).TrimStart
+
+                    Dim Icon As String = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.None).ToList.Find(Function(x) x.Contains("icon") AndAlso x.Contains("="c)).Split("icon", 2).Last.Split("="c, 2).Last.Trim.Split({" "c, vbTab, vbCrLf}, StringSplitOptions.None).First.Replace(".dds", "")
+                    FaithIcons.Add(Icon)
+
+                    Dim RawHolySites As List(Of String) = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("holy_site") AndAlso x.Contains("="c)) 'Get the holy sites of the faith.
+                    For Count = 0 To RawHolySites.Count - 1
+                        RawHolySites(Count) = RawHolySites(Count).Split("="c, 2).Last.Trim.Split(" "c, 2).First
+                    Next
+                    FaithsHolySites(FaithIndex) = String.Join(" "c, RawHolySites)
                 Next
             Next
+        Next
+
+        FileList = Directory.GetFiles(BaseDir & "\common\religion\holy_sites", "*.txt", SearchOption.AllDirectories).ToList 'Get holy site code.
+        Dim HolySites As New List(Of String)
+        Dim HolySiteCounties As New List(Of String)
+
+        For Each TextFile In FileList
+            HolySites = HolySites.Concat(DeNest(File.ReadAllText(TextFile))).ToList 'Parse the raw code into the list through DeNest function.
+        Next
+
+        For Count = 0 To HolySites.Count - 1 'Parse each block for id and county. Discard the block string and replace with the parsed information. Collect counties into a separate list for localisation later.
+            Dim HolySiteID As String = HolySites(Count).Split("{", 2).First.Split({"="c, " "c, vbCrLf, vbTab}, StringSplitOptions.RemoveEmptyEntries).Last.Trim
+            Dim County As String = HolySites(Count).Split(HolySiteID, 2).Last.Split("{", 2).Last.Split("county", 2).Last.Split("="c, 2).Last.TrimStart.Split({" "c, vbTab, vbCrLf}, StringSplitOptions.None).First
+            HolySites(Count) = HolySiteID & ":" & County
+            If Not HolySiteCounties.Contains(County) Then
+                HolySiteCounties.Add(County)
+            End If
+        Next
+
+        For Count = 0 To FaithsHolySites.Count - 1 'Parse the holy sites listed for each faith for its associated county, then record the county's index on the HolySiteCounties list which will later be parsed with the localisation function and give us the county names.
+            If Not FaithsHolySites(Count) = "" Then
+                Dim FaithHolySites As List(Of String) = FaithsHolySites(Count).Split.ToList
+                For HSCount = 0 To FaithHolySites.Count - 1
+                    Dim HolySiteIndex As Integer = HolySites.FindIndex(Function(x) x.StartsWith($"{FaithHolySites(HSCount)}:"))
+                    If HolySiteIndex = -1 Then
+                        Debug.Print($"Holy site not found: {FaithHolySites(HSCount)}")
+                    Else
+                        HolySiteIndex = HolySiteCounties.FindIndex(Function(x) x.Equals(HolySites(HolySiteIndex).Split(":"c, 2).Last))
+                    End If
+                    FaithHolySites(HSCount) = HolySiteIndex
+                Next
+                FaithHolySites.RemoveAll(Function(x) x = -1)
+                FaithsHolySites(Count) = String.Join(" "c, FaithHolySites)
+            End If
         Next
 
         Dim ReligionDescs As List(Of String) = Religions.ToList 'Clone religions into ReligionDescs to enable searching for descriptions by appending '_desc' to them.
         Dim FaithDescs As List(Of String) = Faiths.ToList 'Clone faiths into FaithDescs to enable searching for descriptions by appending '_desc' to them.
 
-        Dim LocalisationFiles As List(Of String) = Directory.GetFiles(BaseDir & "\localization\english", "*.yml", SearchOption.AllDirectories).Concat(Directory.GetFiles(BaseDir & "\localization\replace\english", "*.yml", SearchOption.AllDirectories)).ToList
+        Dim LocalisationFiles As List(Of String) = Directory.GetFiles(BaseDir & "\localization\english", "*.yml", SearchOption.AllDirectories).Concat(Directory.GetFiles(BaseDir & "\localization\replace\english", "*.yml", SearchOption.AllDirectories)).ToList 'Get localisation files.
+        Dim RawLocalisation As List(Of String) = BaseLoc() 'Load some preselected localisation from the base game.
 
         Dim RawGameConceptLocalisations As New List(Of String)
-        For Each TextFile In LocalisationFiles
+        For Each TextFile In LocalisationFiles 'Get localisations for the game concepts so that game concepts appearing in later localisation can be properly handled.
             Using SR As New StreamReader(TextFile)
                 Dim LineData As String
                 While Not SR.EndOfStream
@@ -156,7 +201,7 @@ Module Program
             End Using
         Next
 
-        For Each Item In RawGameConceptLocalisations
+        For Each Item In RawGameConceptLocalisations 'Sort them into a SortedList for rapid access.
             If Item Like "*game_concept*" Then
                 Dim GameConcept As String = Item.Split(":")(0).Split("game_concept_")(1)
                 If Not GameConceptLocalisations.ContainsKey(GameConcept) Then
@@ -167,7 +212,7 @@ Module Program
             End If
         Next
 
-        Dim RawLocalisation As List(Of String) = VanillaLoc()
+        'Localise all the data collected so far.
 
         GetLocalisation(Categories, RawLocalisation, LocalisationFiles, "_name")
         GetLocalisation(Doctrines, RawLocalisation, LocalisationFiles, "_name")
@@ -177,101 +222,101 @@ Module Program
         GetLocalisation(ReligionDescs, RawLocalisation, LocalisationFiles, "_desc")
         GetLocalisation(Faiths, RawLocalisation, LocalisationFiles)
         GetLocalisation(FaithDescs, RawLocalisation, LocalisationFiles, "_desc")
+        GetLocalisation(HolySiteCounties, RawLocalisation, LocalisationFiles)
 
-        Dim OutputFile As String = File.ReadAllLines(BaseDir & "/descriptor.mod").ToList.Find(Function(x) x.StartsWith("name=")).Split(Chr(34), 3)(1)
-        OutputFile = $"{Environment.GetFolderPath(Environment.SpecialFolder.Desktop)}\{String.Concat(OutputFile.Split(Path.GetInvalidFileNameChars))} Faiths.txt"
-        Using SW As New StreamWriter(OutputFile)
-            For Count = 0 To Families.Count - 1
+        'Write the data into a textfile according to MediaWiki markdown + the Tabber/TabberNeue extension code.
+
+        Dim OutputFile As String
+        If File.Exists(BaseDir & "/descriptor.mod") Then
+            OutputFile = File.ReadAllLines(BaseDir & "/descriptor.mod").ToList.Find(Function(x) x.StartsWith("name=")).Split(Chr(34), 3)(1) 'Get the mod name from the descriptor.mod file if it exists and then name the output textfile with that.
+            OutputFile = $"{Environment.GetFolderPath(Environment.SpecialFolder.Desktop)}\{String.Concat(OutputFile.Split(Path.GetInvalidFileNameChars))} Faiths.txt"
+        Else 'If no descriptor.mod exists, then just name it 'Faiths to MediaWiki.txt'.
+            OutputFile = $"{Environment.GetFolderPath(Environment.SpecialFolder.Desktop)}\Faiths to MediaWiki.txt"
+        End If
+
+        Using SW As New StreamWriter(OutputFile) 'The code has been written to ensure that all religions are sorted into a family and all faiths are sorted into a religion. The output will present them like that.
+            For Count = 0 To Families.Count - 1 'Write religion family name as large header.
                 SW.WriteLine($"== List of {Families(Count)} faiths ==")
-                Dim ChildReligions As List(Of String) = FamilyReligions(Count).Split.ToList
+                Dim ChildReligions As List(Of String) = FamilyReligions(Count).Split.ToList 'Get its religions.
                 For Each Religion In ChildReligions
-                    SW.WriteLine($"=== {Religions(Religion)} ===")
-                    SW.WriteLine($"{vbCrLf}{ReligionDescs(Religion).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}{vbCrLf}")
-                    SW.WriteLine("<tabber>")
-                    SW.WriteLine(" Game information=")
-                    SW.WriteLine("{| class=""wikitable sortable""")
-                    SW.WriteLine($"! Faith !! Tenets !! {String.Join(" !! ", Groups.FindAll(Function(x) Not x.Equals("not_creatable")))}")
-                    Dim ChildFaiths As List(Of String) = ReligionFaiths(Religion).Split.ToList
-                    Dim ChildReligionDoctrines As List(Of String) = ReligionDoctrines(Religion).Split(" "c, StringSplitOptions.RemoveEmptyEntries).ToList
-                    For Each Faith In ChildFaiths
-                        SW.WriteLine("|-")
-                        SW.WriteLine($"| style=""text-align: center;"" | {Faiths(Faith)}")
-                    SW.WriteLine("| ")
+                    SW.WriteLine($"=== {Religions(Religion)} ===") 'Religion name, smaller header.
+                    SW.WriteLine($"{vbCrLf}{ReligionDescs(Religion).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}{vbCrLf}") 'Religion description. Last minute localisation: add in the new lines as Carriage Return Line Feeds. This will be transferred to the GetLocalisation function at some point.
+                    SW.WriteLine("<tabber>") 'Tabber/TabberNeue code.
+                    SW.WriteLine(" Game information=") 'First tab: Game Information.
+                    SW.WriteLine("{| class=""wikitable sortable""") 'Table markdown, start.
+                    SW.WriteLine($"! Faith !! Tenets !! {String.Join(" !! ", Groups.FindAll(Function(x) Not x.Equals("not_creatable")))} !! Holy Sites") 'Header cells. Each group except `not_creatable` added as a column.
+                    Dim ChildFaiths As List(Of String) = ReligionFaiths(Religion).Split.ToList 'Get the religion's faiths.
+                    Dim ChildReligionDoctrines As List(Of String) = ReligionDoctrines(Religion).Split(" "c, StringSplitOptions.RemoveEmptyEntries).ToList 'Get the religion's doctrines.
+                    For Each Faith In ChildFaiths 'Start writing each faith.
+                        SW.WriteLine("|-") 'New row.
+                        SW.WriteLine($"| style=""text-align: center;"" | {Faiths(Faith)}<br>[[File:{FaithIcons(Faith)}.png|100px]]") 'Faith name then link to its icon.
+                        SW.WriteLine("| ") 'New cell.
                         Dim ChildTenets As List(Of String) = FaithDoctrines(Faith).Split.ToList.FindAll(Function(x) x.StartsWith("t:"))
-                        For Each Tenet In ChildTenets
+                        For Each Tenet In ChildTenets 'Tenets in bullet point form.
                             SW.WriteLine($"* {Tenets(Tenet.Split(":").Last)}")
                         Next
-                        Dim ChildFaithDoctrines As List(Of String) = FaithDoctrines(Faith).Split(" "c, StringSplitOptions.RemoveEmptyEntries).ToList.FindAll(Function(x) Not x.StartsWith("t:"))
+                        Dim ChildFaithDoctrines As List(Of String) = FaithDoctrines(Faith).Split(" "c, StringSplitOptions.RemoveEmptyEntries).ToList.FindAll(Function(x) Not x.StartsWith("t:")) 'Get doctrines.
                         Dim ChildFaithCategories As New List(Of String)
-                        For Each Doctrine In ChildFaithDoctrines
+                        For Each Doctrine In ChildFaithDoctrines 'Figure out which doctrine categories are accounted for to ensure no repeats when adding the parent religion doctrines.
                             ChildFaithCategories.Add(CategoryOfDoctrine(Doctrine))
                         Next
-                        For Each Doctrine In ChildReligionDoctrines
+                        For Each Doctrine In ChildReligionDoctrines 'Add in religion doctrines if possible.
                             If Not ChildFaithCategories.Contains(CategoryOfDoctrine(Doctrine)) Then
                                 ChildFaithDoctrines.Add(Doctrine)
                             End If
                         Next
 
+                        'Sort the doctrines of this faith into each group except the `not_creatable` one with a SortedList with group as the key and the doctrines as the value.
+
                         Dim ChildGroups As New SortedList(Of Integer, String)
-                        For GCount = 0 To Groups.Count - 1
+                        For GCount = 0 To Groups.Count - 1 'First get the groups as the key.
                             If Not Groups(GCount).Contains("not_creatable") Then
                                 ChildGroups.Add(GCount, "")
                             End If
                         Next
-                        For Each Doctrine In ChildFaithDoctrines
+                        For Each Doctrine In ChildFaithDoctrines 'Then add the doctrines in as the value for each key.
                             Dim Group As Integer = GroupOfCategory(CategoryOfDoctrine(Doctrine))
                             If ChildGroups.ContainsKey(Group) Then
                                 ChildGroups(Group) &= $" {Doctrine}"
                             End If
                         Next
-                        For Each Group In ChildGroups
-                            Dim ChildDoctrines As List(Of String) = Group.Value.TrimStart.Split(" "c, StringSplitOptions.RemoveEmptyEntries).ToList
-                            SW.WriteLine($"| ")
-                            For Each Doctrine In ChildDoctrines
-                                If Not Groups(Group.Key) = "special" Then
+                        For Each Group In ChildGroups 'Then write down each groups doctrines into the output in its own cell.
+                            Dim ChildDoctrines As List(Of String) = Group.Value.TrimStart.Split(" "c, StringSplitOptions.RemoveEmptyEntries).ToList 'Get the doctrines into a list.
+                            SW.WriteLine("| ") 'New cell.
+                            For Each Doctrine In ChildDoctrines 'Write each doctrine.
+                                If Not Groups(Group.Key) = "special" Then 'If the group is not 'special' group then category name of doctrine, then doctrine name.
                                     SW.WriteLine($"* {Categories(CategoryOfDoctrine(Doctrine))}: {Doctrines(Doctrine)}")
-                                Else
+                                Else 'If the group is 'special' group then doctrine name. Category is not shown in-game and has no loc.
                                     SW.WriteLine($"* {Doctrines(Doctrine)}")
                                 End If
                             Next
                         Next
+
+                        SW.WriteLine("| ") 'New cell.
+                        Dim FaithHolySites As List(Of String) = FaithsHolySites(Faith).Split.ToList 'Get this faith's holy sites.
+                        For Each HolySite In FaithHolySites
+                            If Not HolySite = "" Then 'Holy sites in bullet form.
+                                SW.WriteLine($"* {HolySiteCounties(HolySite)}")
+                            End If
+                        Next
                     Next
-                    SW.WriteLine("|}")
-                    SW.WriteLine("|-|")
-                    SW.WriteLine(" Lore=")
-                    SW.WriteLine("{| class=""wikitable sortable"" style=""width=100%;""")
-                    SW.WriteLine("! Faith !! Description")
+                    SW.WriteLine("|}") 'Table markdown, end.
+                    SW.WriteLine("|-|") 'New tab in Tabber/TabberNeue.
+                    SW.WriteLine(" Lore=") 'Lore tab.
+                    SW.WriteLine("{| class=""wikitable sortable""") 'Table markdown, start.
+                    SW.WriteLine("! Faith !! Description") 'Faith and Description columns.
                     For Each Faith In ChildFaiths
-                        SW.WriteLine("|-")
-                        SW.WriteLine($"| style=""text-align: center;"" | {Faiths(Faith)}")
-                        SW.WriteLine($"| {FaithDescs(Faith).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}")
+                        SW.WriteLine("|-") 'New row.
+                        SW.WriteLine($"| style=""text-align: center;"" | {Faiths(Faith)}<br>[[File:{FaithIcons(Faith)}.png|100px]]") 'Faith name as well as a link to its icon.
+                        SW.WriteLine($"| {FaithDescs(Faith).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}") 'Faith description.
                     Next
-                    SW.WriteLine("|}")
-                    SW.WriteLine("</tabber>")
+                    SW.WriteLine("|}") 'Table markdown, end.
+                    SW.WriteLine("</tabber>") 'Tabber/TabberNeue closing code.
                 Next
             Next
-            'If CultureDescriptions.Count = 0 Then
-            '    SW.WriteLine("! Heritage !! Culture !! Ethos !! Traditions !! Language !! Martial Custom")
-            'Else
-            '    SW.WriteLine("! Heritage !! Culture !! Ethos !! Traditions !! Language !! Martial Custom !! Description")
-            'End If
-            'For Each Heritage In HeritageCultures.Keys
-            '    Dim Value As String
-            '    Dim CultureList As List(Of String) = HeritageCultures(Heritage).Split().ToList
-            '    SW.WriteLine($"|-{vbCrLf}| rowspan=""{CultureList.Count}"" | '''{Heritages(Heritage)}'''")
-            '    For Count = 0 To CultureList.Count - 1
-            '        Dim Culture As Integer = CultureList(Count)
-            '        If CultureDescriptions.Count = 0 Then
-            '            CultureList(Count) = $"!style=""background:rgb({String.Join(", ", Colours(Culture).Split)})""| {Cultures(Culture)}{vbCrLf}| {Ethoses(Culture)}{vbCrLf}| {vbCrLf}{Traditions(Culture)}{vbCrLf}| {Languages(Culture)}{vbCrLf}| {MartialCustoms(Culture)}"
-            '        Else
-            '            CultureList(Count) = $"!style=""background:rgb({String.Join(", ", Colours(Culture).Split)})""| {Cultures(Culture)}{vbCrLf}| {Ethoses(Culture)}{vbCrLf}| {vbCrLf}{Traditions(Culture)}{vbCrLf}| {Languages(Culture)}{vbCrLf}| {MartialCustoms(Culture)}{vbCrLf}| {String.Join(vbCrLf, CultureDescriptions(Culture).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("\", "").Split(vbCrLf, StringSplitOptions.TrimEntries))}"
-            '        End If
-            '    Next
-            '    SW.WriteLine(String.Join($"{vbCrLf}|-{vbCrLf}", CultureList))
-            'Next
         End Using
 
-        Console.WriteLine("Successfully deposited output to desktop. Press any key to close.")
+        Console.WriteLine("Successfully deposited output to desktop. Press any key to close.") 'A notification before exiting.
         Console.ReadKey()
     End Sub
     Private Sub AddDoctrine(Doctrine As String)
@@ -279,16 +324,16 @@ Module Program
 
         Dim TextBlock As String = "" 'The string to which the block containing relevant data will be assigned to.
 
-        If Blocks.Exists(Function(x) x.Split(vbCrLf, StringSplitOptions.TrimEntries).ToList.Exists(Function(y) y.StartsWith(Doctrine))) Then 'Search for the data in already accessed game data first.
-            TextBlock = Blocks.Find(Function(x) x.Split(vbCrLf, StringSplitOptions.TrimEntries).ToList.Exists(Function(y) y.StartsWith(Doctrine & " ") OrElse y.StartsWith(Doctrine & "=") OrElse y.StartsWith(Doctrine & "{")))
+        If Blocks.Exists(Function(x) x.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.Exists(Function(y) y.StartsWith(Doctrine))) Then 'Search for the data in already accessed game data first.
+            TextBlock = Blocks.Find(Function(x) x.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.Exists(Function(y) y.StartsWith(Doctrine & " ") OrElse y.StartsWith(Doctrine & "=") OrElse y.StartsWith(Doctrine & "{")))
         Else 'Search for the data in game files not yet accessed.
             For Each TextFile In FileList
-                Dim Text As List(Of String) = File.ReadAllText(TextFile).Split(vbCrLf & "}", StringSplitOptions.RemoveEmptyEntries).ToList 'Split the file contents into the doctrine category nested blocks.
+                Dim Text As List(Of String) = File.ReadAllText(TextFile).Split({vbCrLf & "}", vbLf & "}"}, StringSplitOptions.RemoveEmptyEntries).ToList 'Split the file contents into the doctrine category nested blocks.
                 Text.RemoveAll(Function(x) Not x.Contains("{"c)) 'Remove any that don't seem to contain any data by searching for lack of curly brackets.
 
-                If Text.Exists(Function(x) x.Split(vbCrLf, StringSplitOptions.TrimEntries).ToList.Exists(Function(y) y.StartsWith(Doctrine))) Then
+                If Text.Exists(Function(x) x.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.Exists(Function(y) y.StartsWith(Doctrine))) Then
                     For Each Block In Text
-                        If Block.Split(vbCrLf, StringSplitOptions.TrimEntries).ToList.Exists(Function(x) x.StartsWith(Doctrine)) Then
+                        If Block.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.Exists(Function(x) x.StartsWith(Doctrine)) Then
                             TextBlock = Block
                             Blocks.AddRange(Text)
                             Exit For 'Terminate iterations when appropriate data is found. Hold file data in memory.
@@ -300,10 +345,6 @@ Module Program
         End If
 
         If Not TextBlock = "" Then
-            Dim Test As String
-            If TextBlock.Contains("number_of_picks") Then
-                Test = TextBlock.Split("number_of_picks", 2)(1).Split("="c)(1).Split(" "c, StringSplitOptions.RemoveEmptyEntries).First
-            End If
             If TextBlock.Contains("number_of_picks") AndAlso TextBlock.Split("number_of_picks", 2)(1).Split("="c)(1).Split({" "c, vbTab, vbCrLf}, StringSplitOptions.RemoveEmptyEntries).First > 1 Then 'If there are multiple picks then these are assumed to be tenets.
                 Tenets.Add(Doctrine)
             Else
@@ -361,30 +402,55 @@ Module Program
         End If
     End Sub
     Private Sub GetLocalisation(ByRef Code As List(Of String), ByRef RawLocalisation As List(Of String), ByRef LocalisationFiles As List(Of String), Optional Suffix As String = "")
+        Dim RawRecentLocalisation As New List(Of String) 'Experimental.
         For Count = 0 To Code.Count - 1
             If Not Code(Count) = "" Then
-                Dim RawCode As String = Code(Count) & Suffix
-                If Not RawLocalisation.Exists(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) Then
+                Dim RawCode As String = Code(Count) & Suffix 'Modify the code if the object id has a suffix in the loc code.
+                If Not RawRecentLocalisation.Exists(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) AndAlso Not RawLocalisation.Exists(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) Then 'If base game loc or previously parsed files did not contain loc for this object then look for it in the files.
+                    Dim CompareToCheckIfLocWasFound As String = Code(Count) 'Preserve the original object id.
                     For Each TextFile In LocalisationFiles
                         Using SR As New StreamReader(TextFile)
                             While Not SR.EndOfStream
                                 Dim LineData As String = SR.ReadLine
-                                If LineData.TrimStart.StartsWith($"{RawCode}:") Then
-                                    RawLocalisation = RawLocalisation.Concat(File.ReadAllLines(TextFile)).ToList
-                                    Code(Count) = LineData.Split(Chr(34), 3)(1)
+                                If LineData.TrimStart.StartsWith($"{RawCode}:") Then 'If loc for the object has been found...
+                                    RawRecentLocalisation = RawRecentLocalisation.Concat(File.ReadAllLines(TextFile)).ToList 'Add the files contents into the recently parsed list.
+                                    RawLocalisation = RawLocalisation.Concat(File.ReadAllLines(TextFile)).ToList 'And the overall list.
+                                    If LineData.Split(Chr(34)).Last.Contains("#") Then 'If there are any comments after the actual loc code then remove them.
+                                        LineData = DeComment(LineData)
+                                    End If
+                                    Code(Count) = LineData.Split(Chr(34), 2).Last.TrimEnd.TrimEnd(Chr(34)) 'Remove the quotation marks.
                                     If Code(Count).Contains("#"c) Then
-                                        Code(Count) = DeFormat(Code(Count))
+                                        Code(Count) = DeFormat(Code(Count)) 'If the loc has any style formatting remove them.
                                     End If
                                     If Code(Count).Contains("|E]") Then
-                                        Code(Count) = DeConcept(Code(Count))
+                                        Code(Count) = DeConcept(Code(Count)) 'If the loc has any game concepts then add in the proper names for them.
+                                    End If
+                                    If Code(Count).Contains("$") Then 'If the loc refers to any other loc, then get that loc's name.
+                                        Dim RawLoc As List(Of String) = {Code(Count)}.ToList
+                                        Do
+                                            RawLoc(0) = RawLoc(0).Split("$"c, 2).Last
+                                            Code(Count) = Code(Count).Replace($"${Code(Count).Split("$"c, 3)(1)}$", RawLoc(0))
+                                            GetLocalisation(RawLoc, RawLocalisation, LocalisationFiles)
+                                        Loop While RawLoc(0).Contains("$")
+                                        Code(Count) = RawLoc(0)
                                     End If
                                     Exit For
                                 End If
                             End While
                         End Using
                     Next
-                Else
-                    Code(Count) = RawLocalisation.FindLast(Function(x) x.TrimStart.StartsWith($"{RawCode}:")).Split(Chr(34), 3)(1)
+                    If Code(Count) = CompareToCheckIfLocWasFound Then 'If no loc was found then add in a note.
+                        Code(Count) = RawCode & " (localisation missing)"
+                    End If
+                ElseIf RawRecentLocalisation.Exists(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) Then 'If the loc for the code exists in recently parsed files then get it from there. Note: Not working as intended but not broken.
+                    Code(Count) = RawRecentLocalisation.FindLast(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) 'Find the loc in the list.
+
+                    'Process the loc for internal code.
+
+                    If Code(Count).Split(Chr(34)).Last.Contains("#") Then
+                        Code(Count) = DeComment(Code(Count))
+                    End If
+                    Code(Count) = Code(Count).Split(Chr(34), 2).Last.TrimEnd.TrimEnd(Chr(34))
                     If Code(Count).Contains("#"c) Then
                         Code(Count) = DeFormat(Code(Count))
                     End If
@@ -398,6 +464,31 @@ Module Program
                             Code(Count) = Code(Count).Replace($"${Code(Count).Split("$"c, 3)(1)}$", RawLoc(0))
                             GetLocalisation(RawLoc, RawLocalisation, LocalisationFiles)
                         Loop While RawLoc(0).Contains("$")
+                        Code(Count) = RawLoc(0)
+                    End If
+                Else 'If the loc was not in the recently parsed files then check the overall parsed files.
+                    Code(Count) = RawLocalisation.FindLast(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) 'Find the loc in the list.
+
+                    'Process the loc for internal code.
+
+                    If Code(Count).Split(Chr(34)).Last.Contains("#") Then
+                        Code(Count) = DeComment(Code(Count))
+                    End If
+                    Code(Count) = Code(Count).Split(Chr(34), 2).Last.TrimEnd.TrimEnd(Chr(34))
+                    If Code(Count).Contains("#"c) Then
+                        Code(Count) = DeFormat(Code(Count))
+                    End If
+                    If Code(Count).Contains("|E]") Then
+                        Code(Count) = DeConcept(Code(Count))
+                    End If
+                    If Code(Count).Contains("$") Then
+                        Dim RawLoc As List(Of String) = {Code(Count)}.ToList
+                        Do
+                            RawLoc(0) = RawLoc(0).Split("$"c, 2).Last
+                            Code(Count) = Code(Count).Replace($"${Code(Count).Split("$"c, 3)(1)}$", RawLoc(0))
+                            GetLocalisation(RawLoc, RawLocalisation, LocalisationFiles)
+                        Loop While RawLoc(0).Contains("$")
+                        Code(Count) = RawLoc(0)
                     End If
                 End If
             End If
@@ -406,36 +497,54 @@ Module Program
     Function DeConcept(Input As String) As String
         Dim Output As String = Input
         Do
-            Dim GameConcept As String = Split(Split(Output, "[", 2)(1), "|", 2)(0)
+            Dim GameConcept As String = Split(Split(Output, "[", 2)(1), "|", 2)(0) 'Get the game concept object id.
             Dim Finder As String
-            If GameConceptLocalisations.ContainsKey(GameConcept.ToLower) Then
+            If GameConceptLocalisations.ContainsKey(GameConcept.ToLower) Then 'Find its loc in the SortedList.
                 Finder = GameConceptLocalisations(GameConcept.ToLower)
             Else
                 Finder = GameConcept
             End If
-            Output = Output.Replace($"[{GameConcept}|E]", Finder)
-        Loop While Output.Contains("|E]")
-        Return Output
+            Output = Output.Replace($"[{GameConcept}|E]", Finder) 'Replace its code in the input loc.
+        Loop While Output.Contains("|E]") 'Loop if there are still more.
+        Return Output 'Return loc.
+    End Function
+    Function DeComment(Input As String) As String
+        Dim Output As List(Of String) = Input.Split(Chr(34)).ToList 'Find the boundaries of the actual loc code by splitting it up according to its quotation marks.
+        Output(Output.Count - 1) = Output(Output.Count - 1).Split("#"c).First 'Take the last part of the split input, and split it off from the comment.
+        Return String.Join(Chr(34), Output).TrimEnd 'Rejoin the input with quotation marks and return it.
     End Function
     Function DeFormat(Input As String) As String
-        Dim Output As List(Of String) = Input.Split("#"c, StringSplitOptions.RemoveEmptyEntries).ToList
-        For Count = 0 To Output.Count - 1
-            Dim Formatted() As String = Output(Count).Split({" "c, vbTab}, 2, StringSplitOptions.None)
-            Output(Count) = Output(Count).Split({" "c, vbTab}, 2, StringSplitOptions.None)(1)
-        Next
-        Return String.Concat(Output).Trim
+        Dim Output As String = Input
+        Do
+            Dim FormattedLoc As String = Output.Split("#"c, 2).Last.Split("#"c, 2).First 'Find the styled part of the loc and extract it.
+            Dim DeFormatted As String = FormattedLoc.Split(" "c, 2).Last 'Remove the style code and store it in a string.
+            Output = Output.Replace($"#{FormattedLoc}#!", DeFormatted) 'Use replace function to replace the formatted part of the loc with the deformatted string.
+        Loop While Output.Contains("#"c) 'Loop if there are more.
+        Return Output 'Return when there are no more.
+    End Function
+    Function DeNest(Input As String) As List(Of String)
+        Dim Output As New List(Of String)
+        Do
+            Dim RawCodeID As String = Input.Split("{", 2).First 'Get the code id of the object the block is assigned to.
+            Dim RawCodeBlock As String = Input.Split(RawCodeID, 2)(1).Split("{"c, 2)(1) 'Get the rest of the block after the faith id.
+            Do 'Designate subsidiary objects designated with curly brackets as such by replacing their {} with <>.
+                RawCodeBlock = String.Join(">", String.Join("<", RawCodeBlock.Split("{"c, 2)).Split("}"c, 2))
+            Loop While RawCodeBlock.Split("}", 2)(0).Contains("{"c) 'Loop until no more subsidiary objects.
+            RawCodeBlock = RawCodeBlock.Split("}"c)(0).Replace("<", "{").Replace(">", "}") & "}" 'Get the data of this object by splitting it off of the overall code after its own { closing bracket.
+            Output.Add(String.Join("{", {RawCodeID, RawCodeBlock})) 'Add to List
+            Input = Input.Split(RawCodeBlock, 2).Last 'Remove already parsed data from the rest of the unparsed data.
+        Loop While Input.Split("}", 2)(0).Contains("{"c) 'Continue to parse the data until no more faiths can be found by looking for a { starting bracket.
+        Return Output
     End Function
 End Module
-Friend Module BaseData
+Friend Module BaseData 'Some raw data collected from the base game.
     Property BaseGroups As New List(Of String) From {"core_tenets", "marriage", "crimes", "main_group", "clergy", "not_creatable", "special"}
     Property BaseCategories As New List(Of String) From {"doctrine_core_tenets", "doctrine_marriage_type", "doctrine_divorce", "doctrine_bastardry", "doctrine_homosexuality", "doctrine_deviancy", "doctrine_adultery_men", "doctrine_adultery_women", "doctrine_kinslaying", "doctrine_witchcraft", "doctrine_gender", "doctrine_consanguinity", "doctrine_pluralism", "doctrine_theocracy", "doctrine_head_of_faith", "doctrine_clerical_function", "doctrine_clerical_gender", "doctrine_clerical_marriage", "doctrine_clerical_succession", "doctrine_muhammad_succession", "hostility_group", "is_christian_faith", "is_islamic_faith", "is_jewish_faith", "is_eastern_faith", "is_gnostic_faith", "special_tolerance", "heresy_hostility", "nudity_doctrine", "unreformed_faith", "divine_destiny", "full_tolerance"}
     Property BaseDoctrines As New List(Of String) From {"doctrine_monogamy", "doctrine_polygamy", "doctrine_concubines", "doctrine_divorce_disallowed", "doctrine_divorce_approval", "doctrine_divorce_allowed", "doctrine_bastardry_none", "doctrine_bastardry_legitimization", "doctrine_bastardry_all", "doctrine_homosexuality_crime", "doctrine_homosexuality_shunned", "doctrine_homosexuality_accepted", "doctrine_deviancy_crime", "doctrine_deviancy_shunned", "doctrine_deviancy_accepted", "doctrine_adultery_men_crime", "doctrine_adultery_men_shunned", "doctrine_adultery_men_accepted", "doctrine_adultery_women_crime", "doctrine_adultery_women_shunned", "doctrine_adultery_women_accepted", "doctrine_kinslaying_any_dynasty_member_crime", "doctrine_kinslaying_extended_family_crime", "doctrine_kinslaying_close_kin_crime", "doctrine_kinslaying_shunned", "doctrine_kinslaying_accepted", "doctrine_witchcraft_crime", "doctrine_witchcraft_shunned", "doctrine_witchcraft_accepted", "doctrine_gender_male_dominated", "doctrine_gender_equal", "doctrine_gender_female_dominated", "doctrine_consanguinity_restricted", "doctrine_consanguinity_cousins", "doctrine_consanguinity_aunt_nephew_and_uncle_niece", "doctrine_consanguinity_unrestricted", "doctrine_pluralism_fundamentalist", "doctrine_pluralism_righteous", "doctrine_pluralism_pluralistic", "doctrine_theocracy_temporal", "doctrine_theocracy_lay_clergy", "doctrine_no_head", "doctrine_spiritual_head", "doctrine_temporal_head", "doctrine_clerical_function_taxation", "doctrine_clerical_function_alms_and_pacification", "doctrine_clerical_function_recruitment", "doctrine_clerical_gender_male_only", "doctrine_clerical_gender_female_only", "doctrine_clerical_gender_either", "doctrine_clerical_marriage_allowed", "doctrine_clerical_marriage_disallowed", "doctrine_clerical_succession_temporal_appointment", "doctrine_clerical_succession_spiritual_appointment", "doctrine_clerical_succession_temporal_fixed_appointment", "doctrine_clerical_succession_spiritual_fixed_appointment", "muhammad_succession_sunni_doctrine", "muhammad_succession_shia_doctrine", "muhammad_succession_muhakkima_doctrine", "muhammad_succession_zandaqa_doctrine", "abrahamic_hostility_doctrine", "pagan_hostility_doctrine", "eastern_hostility_doctrine", "special_doctrine_is_christian_faith", "special_doctrine_is_islamic_faith", "special_doctrine_is_jewish_faith", "special_doctrine_is_eastern_faith", "special_doctrine_is_gnostic_faith", "special_doctrine_ecumenical_christian", "heresy_hostility_doctrine", "special_doctrine_naked_priests", "unreformed_faith_doctrine", "divine_destiny_doctrine", "special_doctrine_full_tolerance"}
-    'Property BaseCategoriesGrouped As New Dictionary(Of Integer, String) From {{0, "0"}, {1, "1 2 3 11"}, {2, "4 5 6 7 8 9"}, {3, "10 12 13 14 19 26"}, {4, "15 16 17 18"}, {5, "20 27 29"}, {6, "21 22 23 24 25 28 30 31"}}
-    'Property BaseDoctrinesCategorised As New Dictionary(Of Integer, String) From {{1, "0 1 2"}, {2, "3 4 5"}, {3, "6 7 8"}, {4, "9 10 11"}, {5, "12 13 14"}, {6, "15 16 17"}, {7, "18 19 20"}, {8, "21 22 23 24 25"}, {9, "26 27 28"}, {10, "29 30 31"}, {11, "32 33 34 35"}, {12, "36 37 38"}, {13, "39 40"}, {14, "41 42 43"}, {15, "44 45 46"}, {16, "47 48 49"}, {17, "50 51"}, {18, "52 53 54 55"}}
     Property BaseGroupOfCategory As New Dictionary(Of Integer, Integer) From {{0, 0}, {1, 1}, {2, 1}, {3, 1}, {4, 2}, {5, 2}, {6, 2}, {7, 2}, {8, 2}, {9, 2}, {10, 3}, {11, 1}, {12, 3}, {13, 3}, {14, 3}, {15, 4}, {16, 4}, {17, 4}, {18, 4}, {19, 3}, {20, 5}, {21, 6}, {22, 6}, {23, 6}, {24, 6}, {25, 6}, {26, 3}, {27, 5}, {28, 6}, {29, 5}, {30, 6}, {31, 6}}
     Property BaseCategoryOfDoctrine As New Dictionary(Of Integer, Integer) From {{0, 1}, {1, 1}, {2, 1}, {3, 2}, {4, 2}, {5, 2}, {6, 3}, {7, 3}, {8, 3}, {9, 4}, {10, 4}, {11, 4}, {12, 5}, {13, 5}, {14, 5}, {15, 6}, {16, 6}, {17, 6}, {18, 7}, {19, 7}, {20, 7}, {21, 8}, {22, 8}, {23, 8}, {24, 8}, {25, 8}, {26, 9}, {27, 9}, {28, 9}, {29, 10}, {30, 10}, {31, 10}, {32, 11}, {33, 11}, {34, 11}, {35, 11}, {36, 12}, {37, 12}, {38, 12}, {39, 13}, {40, 13}, {41, 14}, {42, 14}, {43, 14}, {44, 15}, {45, 15}, {46, 15}, {47, 16}, {48, 16}, {49, 16}, {50, 17}, {51, 17}, {52, 18}, {53, 18}, {54, 18}, {55, 18}, {56, 19}, {57, 19}, {58, 19}, {59, 19}, {60, 20}, {61, 20}, {62, 20}, {63, 21}, {64, 22}, {65, 23}, {66, 24}, {67, 25}, {68, 26}, {69, 27}, {70, 28}, {71, 29}, {72, 30}, {73, 31}}
     Property BaseTenets As New List(Of String) From {"tenet_aniconism", "tenet_alexandrian_catechism", "tenet_armed_pilgrimages", "tenet_carnal_exaltation", "tenet_communal_identity", "tenet_communion", "tenet_consolamentum", "tenet_divine_marriage", "tenet_gnosticism", "tenet_mendicant_preachers", "tenet_monasticism", "tenet_pacifism", "tenet_pentarchy", "tenet_unrelenting_faith", "tenet_vows_of_poverty", "tenet_pastoral_isolation", "tenet_adaptive", "tenet_esotericism", "tenet_legalism", "tenet_literalism", "tenet_reincarnation", "tenet_religious_legal_pronouncements", "tenet_struggle_submission", "tenet_false_conversion_sanction", "tenet_tax_nonbelievers", "tenet_asceticism", "tenet_bhakti", "tenet_dharmic_pacifism", "tenet_inner_journey", "tenet_ritual_hospitality", "tenet_adorcism", "tenet_ancestor_worship", "tenet_astrology", "tenet_hedonistic", "tenet_human_sacrifice", "tenet_mystical_birthright", "tenet_ritual_celebrations", "tenet_sacred_childbirth", "tenet_sanctity_of_nature", "tenet_sky_burials", "tenet_sun_worship", "tenet_warmonger", "tenet_gruesome_festivals", "tenet_eastern_syncretism", "tenet_unreformed_syncretism", "tenet_christian_syncretism", "tenet_islamic_syncretism", "tenet_jewish_syncretism", "tenet_exaltation_of_pain", "tenet_natural_primitivism", "tenet_pursuit_of_power", "tenet_ritual_cannibalism", "tenet_sacred_shadows", "tenet_polyamory"}
-    Function VanillaLoc() As List(Of String)
+    Function BaseLoc() As List(Of String) 'Raw loc collected from the base game.
         Return New List(Of String)({
 " doctrine_core_tenets_name:1 ""Tenets""",
 " doctrine_marriage_type_name:0 ""Marriage Type""",
@@ -596,6 +705,9 @@ Friend Module BaseData
 " tenet_pursuit_of_power_name:0 ""Pursuit of Power""",
 " tenet_ritual_cannibalism_name:0 ""Ritual Cannibalism""",
 " tenet_sacred_shadows_name:0 ""Sacred Lies""",
-" tenet_polyamory_name:0 ""Polyamory"""})
+" tenet_polyamory_name:0 ""Polyamory""",
+" rf_pagan:0 ""Pagan""",
+" rf_eastern:0 ""Eastern""",
+" rf_abrahamic:0 ""Abrahamic"""})
     End Function
 End Module
