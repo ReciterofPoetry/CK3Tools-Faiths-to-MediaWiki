@@ -440,7 +440,7 @@ Module Program
                         End Using
                     Next
                     If Code(Count) = CompareToCheckIfLocWasFound Then 'If no loc was found then add in a note.
-                        Code(Count) = RawCode & " (localisation missing)"
+                        Code(Count) &= Suffix
                     End If
                 ElseIf RawRecentLocalisation.Exists(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) Then 'If the loc for the code exists in recently parsed files then get it from there. Note: Not working as intended but not broken.
                     Code(Count) = RawRecentLocalisation.FindLast(Function(x) x.TrimStart.StartsWith($"{RawCode}:")) 'Find the loc in the list.
