@@ -2,9 +2,9 @@
 Imports CK3Tools_Faiths_to_MediaWiki.BaseData
 Imports Microsoft.Win32
 Friend Module Props
-    Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2216659254"
+    'Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2216659254"
     'Property BaseDir As String = "D:\Programs\Steam\steamapps\common\Crusader Kings III\game"
-    'Property BaseDir As String = Environment.CurrentDirectory
+    Property BaseDir As String = Environment.CurrentDirectory
 End Module
 Module Program
 #Disable Warning IDE0044 ' Add readonly modifier
