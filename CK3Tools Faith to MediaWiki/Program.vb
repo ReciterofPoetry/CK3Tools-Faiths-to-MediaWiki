@@ -2,9 +2,9 @@ Imports System.IO
 Imports CK3Tools_Faiths_to_MediaWiki.BaseData
 Imports Microsoft.Win32
 Friend Module Props
-    'Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2326030123"
+    Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2216659254"
     'Property BaseDir As String = "D:\Programs\Steam\steamapps\common\Crusader Kings III\game"
-    Property BaseDir As String = Environment.CurrentDirectory
+    'Property BaseDir As String = Environment.CurrentDirectory
 End Module
 Module Program
 #Disable Warning IDE0044 ' Add readonly modifier
@@ -74,76 +74,79 @@ Module Program
                 ReligionDoctrines(Religion) = ReligionDoctrines(Religion).TrimStart
 
                 'Extracting the overall block of faiths.
+                If Block.Contains("faiths") Then
+                    Dim RawFaithsBlock As String = Block.Split("faiths", 2)(1).Split("="c, 2)(1).Split("{"c, 2)(1) 'Get all text after 'faiths = {'
+                    Do 'Determine the subsidiary {} curly bracket blocks and designate them as such by replacing them with angle brackets.
+                        RawFaithsBlock = String.Join(">", String.Join("<", RawFaithsBlock.Split("{"c, 2)).Split("}"c, 2))
+                    Loop While RawFaithsBlock.Split("}", 2)(0).Contains("{"c) 'Loop until there is no } closing bracket that has a { starting bracket before it remaining. The next } closing bracket remaining will be for the faiths block.
+                    RawFaithsBlock = RawFaithsBlock.Split("}"c)(0).Replace("<", "{").Replace(">", "}") 'Split off any code after that last } closing bracket and then replace the angle brackets back with curly brackets.
 
-                Dim RawFaithsBlock As String = Block.Split("faiths", 2)(1).Split("="c, 2)(1).Split("{"c, 2)(1) 'Get all text after 'faiths = {'
-                Do 'Determine the subsidiary {} curly bracket blocks and designate them as such by replacing them with angle brackets.
-                    RawFaithsBlock = String.Join(">", String.Join("<", RawFaithsBlock.Split("{"c, 2)).Split("}"c, 2))
-                Loop While RawFaithsBlock.Split("}", 2)(0).Contains("{"c) 'Loop until there is no } closing bracket that has a { starting bracket before it remaining. The next } closing bracket remaining will be for the faiths block.
-                RawFaithsBlock = RawFaithsBlock.Split("}"c)(0).Replace("<", "{").Replace(">", "}") 'Split off any code after that last } closing bracket and then replace the angle brackets back with curly brackets.
+                    If RawFaithsBlock.Contains("{") Then 'Make sure this religion actually has faiths in its faiths block.
+                        Dim RawFaiths As New SortedList(Of String, String) 'The individual faith blocks will be parsed into this SortedList.
+                        Do
+                            Dim RawFaith As String = RawFaithsBlock.Split("{", 2)(0) 'Get the faith id.
+                            Dim RawFaithBlock As String = Block.Split(RawFaith, 2)(1).Split("{"c, 2)(1) 'Get the rest of the block after the faith id.
+                            RawFaith = RawFaith.Split("="c, 2)(0).Trim.Split().Last 'Remove unnecessary code in faith id.
+                            Do 'Same old method to designate subsidiary curly brackets as such with angle brackets.
+                                RawFaithBlock = String.Join(">", String.Join("<", RawFaithBlock.Split("{"c, 2)).Split("}"c, 2))
+                            Loop While RawFaithBlock.Split("}", 2)(0).Contains("{"c) 'Loop until no more subsidiary code.
+                            RawFaithBlock = RawFaithBlock.Split("}"c)(0).Replace("<", "{").Replace(">", "}") 'Get the data of this faith by splitting off whatever remains after its { closing bracket.
+                            RawFaiths.Add(RawFaith, RawFaithBlock) 'Add to SortedList
+                            RawFaithsBlock = RawFaithsBlock.Split(RawFaithBlock, 2)(1).Split("}", 2)(1) 'Remove already parsed data from the rest of the unparsed data.
+                        Loop While RawFaithsBlock.Split("}", 2)(0).Contains("{"c) 'Continue to parse the data until no more faiths can be found by looking for a { starting bracket.
 
-                Dim RawFaiths As New SortedList(Of String, String) 'The individual faith blocks will be parsed into this SortedList.
-                Do
-                    Dim RawFaith As String = RawFaithsBlock.Split("{", 2)(0) 'Get the faith id.
-                    Dim RawFaithBlock As String = Block.Split(RawFaith, 2)(1).Split("{"c, 2)(1) 'Get the rest of the block after the faith id.
-                    RawFaith = RawFaith.Split("="c, 2)(0).Trim.Split().Last 'Remove unnecessary code in faith id.
-                    Do 'Same old method to designate subsidiary curly brackets as such with angle brackets.
-                        RawFaithBlock = String.Join(">", String.Join("<", RawFaithBlock.Split("{"c, 2)).Split("}"c, 2))
-                    Loop While RawFaithBlock.Split("}", 2)(0).Contains("{"c) 'Loop until no more subsidiary code.
-                    RawFaithBlock = RawFaithBlock.Split("}"c)(0).Replace("<", "{").Replace(">", "}") 'Get the data of this faith by splitting off whatever remains after its { closing bracket.
-                    RawFaiths.Add(RawFaith, RawFaithBlock) 'Add to SortedList
-                    RawFaithsBlock = RawFaithsBlock.Split(RawFaithBlock, 2)(1).Split("}", 2)(1) 'Remove already parsed data from the rest of the unparsed data.
-                Loop While RawFaithsBlock.Split("}", 2)(0).Contains("{"c) 'Continue to parse the data until no more faiths can be found by looking for a { starting bracket.
+                        For Each Faith In RawFaiths 'Now parse the collected faith data.
+                            Faiths.Add(Faith.Key) 'Add the faith id to list.
+                            Dim FaithIndex As Integer = Faiths.Count - 1 'Collect the index of the faith.
+                            FaithDoctrines.Add(FaithIndex, "")
+                            FaithsHolySites.Add("")
 
-                For Each Faith In RawFaiths 'Now parse the collected faith data.
-                    Faiths.Add(Faith.Key) 'Add the faith id to list.
-                    Dim FaithIndex As Integer = Faiths.Count - 1 'Collect the index of the faith.
-                    FaithDoctrines.Add(FaithIndex, "")
-                    FaithsHolySites.Add("")
-
-                    If Not ReligionFaiths.ContainsKey(Religion) Then 'Add to Dictionary of religion-'subsidiary faiths' key-value pairs, referring to the indexes of each from the original lists.
-                        ReligionFaiths.Add(Religion, FaithIndex)
-                    Else
-                        ReligionFaiths(Religion) &= $" {FaithIndex}"
-                    End If
-
-                    ReligionOfFaith.Add(FaithIndex, Religion) 'Add to the Dictionary of faith-'parent religion' key-value pairs, referring to indexes.
-
-                    RawDoctrines = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("doctrine") AndAlso x.Contains("="c) AndAlso Not x.StartsWith("doctrine_")) 'Get the doctrines of the faith.
-
-                    For Each Doctrine In RawDoctrines
-                        Doctrine = Doctrine.Split("="c, 2)(1).Trim.Split(" "c).First
-                        If Not BuggedDoctrinesTenets.Contains(Doctrine) Then
-                            If Doctrines.Contains(Doctrine) Then 'Make sure doctrine exists in database. Doctrines are added on-demand. Then get index of doctrine. If tenets, do the same, then get index of tenet while signifying it is a tenet with 't:' prefixed.
-                                Doctrine = Doctrines.IndexOf(Doctrine)
-                            ElseIf Tenets.Contains(Doctrine) Then
-                                Doctrine = "t:" & Tenets.IndexOf(Doctrine)
+                            If Not ReligionFaiths.ContainsKey(Religion) Then 'Add to Dictionary of religion-'subsidiary faiths' key-value pairs, referring to the indexes of each from the original lists.
+                                ReligionFaiths.Add(Religion, FaithIndex)
                             Else
-                                AddDoctrine(Doctrine)
-                                If Doctrines.Contains(Doctrine) Then
-                                    Doctrine = Doctrines.Count - 1
-                                ElseIf Tenets.Contains(Doctrine) Then
-                                    Doctrine = "t:" & Tenets.Count - 1
-                                Else
-                                    Doctrine = -1 '-1 signifies that the doctrine does not exist in game code.
+                                ReligionFaiths(Religion) &= $" {FaithIndex}"
+                            End If
+
+                            ReligionOfFaith.Add(FaithIndex, Religion) 'Add to the Dictionary of faith-'parent religion' key-value pairs, referring to indexes.
+
+                            RawDoctrines = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("doctrine") AndAlso x.Contains("="c) AndAlso Not x.StartsWith("doctrine_")) 'Get the doctrines of the faith.
+
+                            For Each Doctrine In RawDoctrines
+                                Doctrine = Doctrine.Split("="c, 2)(1).Trim.Split(" "c).First
+                                If Not BuggedDoctrinesTenets.Contains(Doctrine) Then
+                                    If Doctrines.Contains(Doctrine) Then 'Make sure doctrine exists in database. Doctrines are added on-demand. Then get index of doctrine. If tenets, do the same, then get index of tenet while signifying it is a tenet with 't:' prefixed.
+                                        Doctrine = Doctrines.IndexOf(Doctrine)
+                                    ElseIf Tenets.Contains(Doctrine) Then
+                                        Doctrine = "t:" & Tenets.IndexOf(Doctrine)
+                                    Else
+                                        AddDoctrine(Doctrine)
+                                        If Doctrines.Contains(Doctrine) Then
+                                            Doctrine = Doctrines.Count - 1
+                                        ElseIf Tenets.Contains(Doctrine) Then
+                                            Doctrine = "t:" & Tenets.Count - 1
+                                        Else
+                                            Doctrine = -1 '-1 signifies that the doctrine does not exist in game code.
+                                        End If
+                                    End If
+
+                                    If Not Doctrine.Split(":").Last = -1 Then
+                                        FaithDoctrines(FaithIndex) &= $" {Doctrine}" 'Add doctrine of faith into the dictionary.
+                                    End If
                                 End If
-                            End If
+                            Next
+                            FaithDoctrines(FaithIndex) = FaithDoctrines(FaithIndex).TrimStart
 
-                            If Not Doctrine.Split(":").Last = -1 Then
-                                FaithDoctrines(FaithIndex) &= $" {Doctrine}" 'Add doctrine of faith into the dictionary.
-                            End If
-                        End If
-                    Next
-                    FaithDoctrines(FaithIndex) = FaithDoctrines(FaithIndex).TrimStart
+                            Dim Icon As String = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.None).ToList.Find(Function(x) x.Contains("icon") AndAlso x.Contains("="c)).Split("icon", 2).Last.Split("="c, 2).Last.Trim.Split({" "c, vbTab, vbCrLf}, StringSplitOptions.None).First.Replace(".dds", "")
+                            FaithIcons.Add(Icon)
 
-                    Dim Icon As String = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.None).ToList.Find(Function(x) x.Contains("icon") AndAlso x.Contains("="c)).Split("icon", 2).Last.Split("="c, 2).Last.Trim.Split({" "c, vbTab, vbCrLf}, StringSplitOptions.None).First.Replace(".dds", "")
-                    FaithIcons.Add(Icon)
-
-                    Dim RawHolySites As List(Of String) = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("holy_site") AndAlso x.Contains("="c)) 'Get the holy sites of the faith.
-                    For Count = 0 To RawHolySites.Count - 1
-                        RawHolySites(Count) = RawHolySites(Count).Split("="c, 2).Last.Trim.Split(" "c, 2).First
-                    Next
-                    FaithsHolySites(FaithIndex) = String.Join(" "c, RawHolySites)
-                Next
+                            Dim RawHolySites As List(Of String) = Faith.Value.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.FindAll(Function(x) x.StartsWith("holy_site") AndAlso x.Contains("="c)) 'Get the holy sites of the faith.
+                            For Count = 0 To RawHolySites.Count - 1
+                                RawHolySites(Count) = RawHolySites(Count).Split("="c, 2).Last.Trim.Split(" "c, 2).First
+                            Next
+                            FaithsHolySites(FaithIndex) = String.Join(" "c, RawHolySites)
+                        Next
+                    End If
+                End If
             Next
         Next
 
@@ -184,7 +187,18 @@ Module Program
         Dim ReligionDescs As List(Of String) = Religions.ToList 'Clone religions into ReligionDescs to enable searching for descriptions by appending '_desc' to them.
         Dim FaithDescs As List(Of String) = Faiths.ToList 'Clone faiths into FaithDescs to enable searching for descriptions by appending '_desc' to them.
 
-        Dim LocalisationFiles As List(Of String) = Directory.GetFiles(BaseDir & "\localization\english", "*.yml", SearchOption.AllDirectories).Concat(Directory.GetFiles(BaseDir & "\localization\replace\english", "*.yml", SearchOption.AllDirectories)).ToList 'Get localisation files.
+        Dim LocalisationFiles As List(Of String)
+        If Directory.Exists(BaseDir & "\localization\english") Then
+            LocalisationFiles = Directory.GetFiles(BaseDir & "\localization\english", "*.yml", SearchOption.AllDirectories).ToList
+        Else
+            Console.WriteLine("Sorry, non-English localisation not currently supported. Press any key to exit.")
+            Console.ReadKey()
+            Exit Sub
+        End If
+        If Directory.Exists(BaseDir & "\localization\replace\english") Then
+            LocalisationFiles = LocalisationFiles.Concat(Directory.GetFiles(BaseDir & "\localization\replace\english", "*.yml", SearchOption.AllDirectories)).ToList
+        End If
+
         Dim RawLocalisation As List(Of String) = BaseLoc() 'Load some preselected localisation from the base game.
 
         Dim RawGameConceptLocalisations As New List(Of String)
@@ -496,16 +510,25 @@ Module Program
     End Sub
     Function DeConcept(Input As String) As String
         Dim Output As String = Input
+        Dim GameConcepts As New SortedList(Of String, String)
         Do
             Dim GameConcept As String = Split(Split(Output, "[", 2)(1), "|", 2)(0) 'Get the game concept object id.
-            Dim Finder As String
-            If GameConceptLocalisations.ContainsKey(GameConcept.ToLower) Then 'Find its loc in the SortedList.
-                Finder = GameConceptLocalisations(GameConcept.ToLower)
-            Else
-                Finder = GameConcept
+            If Not GameConcepts.ContainsKey(GameConcept) Then 'If it has not already been collected then...
+                Dim ReplaceString As String
+                If GameConceptLocalisations.ContainsKey(GameConcept.ToLower) Then 'Find its loc in the SortedList.
+                    ReplaceString = GameConceptLocalisations(GameConcept.ToLower)
+                Else
+                    ReplaceString = GameConcept 'If it cannot be found then assign the replace string to be the raw code.
+                End If
+                GameConcepts.Add(GameConcept, ReplaceString) 'Add it to the sortedlist and find the rest of the game concepts in this loc string.
+                Input = Input.Replace($"[{GameConcept}|E]", ReplaceString) 'Remove it from the input string so it is not reparsed into the SortedList.
+            Else 'If it has already been collected...
+                Input = String.Concat(Input.Split({"[", "|E]"}, 3, StringSplitOptions.None)) 'Remove it from the input string.
             End If
-            Output = Output.Replace($"[{GameConcept}|E]", Finder) 'Replace its code in the input loc.
-        Loop While Output.Contains("|E]") 'Loop if there are still more.
+        Loop While Input.Contains("|E]")
+        For Each GameConcept In GameConcepts.Keys
+            Output = Output.Replace($"[{GameConcept}|E]", GameConcepts(GameConcept)) 'Now do a find and replace in the output string for each game concept found.
+        Next
         Return Output 'Return loc.
     End Function
     Function DeComment(Input As String) As String
