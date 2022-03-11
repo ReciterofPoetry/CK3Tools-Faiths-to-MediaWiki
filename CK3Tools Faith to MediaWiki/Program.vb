@@ -1,6 +1,6 @@
 ﻿Imports System.IO
 Friend Module Props
-    'Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2618149514"
+    'Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2216659254"
     'Property BaseDir As String = "D:\Programs\Steam\steamapps\common\Crusader Kings III\game"
     Property BaseDir As String = Environment.CurrentDirectory
     Property GameDir As String
@@ -82,11 +82,11 @@ Module Program
 
                 'Extracting the overall block of faiths.
                 If Block.Contains("faiths") Then
-
                     Dim RawFaithsBlock As String = DeNest("faiths" & Block.Split("faiths", 2).Last).First 'Get faiths object block.
-
-                    If RawFaithsBlock.Contains("{") Then 'Make sure this religion actually has faiths in its faiths block.
-                        Dim RawFaiths As List(Of String) = DeNest(RawFaithsBlock.Split("faiths", 2).Last.Split("="c, 2).Last.Split("{"c, 2).Last).FindAll(Function(x) x.Contains("="c)) 'The individual faith blocks will be parsed into this SortedList.
+                    Dim StartIndex As Integer = RawFaithsBlock.IndexOf("{"c) + 1
+                    RawFaithsBlock = RawFaithsBlock.Substring(StartIndex, RawFaithsBlock.LastIndexOf("}"c) - StartIndex)
+                    If RawFaithsBlock.Contains("{"c) Then 'Make sure this religion actually has faiths in its faiths block.
+                        Dim RawFaiths As List(Of String) = DeNest(RawFaithsBlock).FindAll(Function(x) x.Contains("="c)) 'The individual faith blocks will be parsed into this SortedList.
 
                         For Each Faith In RawFaiths 'Now parse the collected faith data.
                             Dim FaithID As String = Faith.Split("{"c, 2).First.Split("="c, 2).First.TrimEnd.Split({" "c, vbTab, vbCrLf, vbCr, vbLf}, StringSplitOptions.None).Last
@@ -586,7 +586,7 @@ Module Program
         If Input.Contains("="c) AndAlso Input.Contains("{"c) Then
             Do
                 Dim RawCodeID As String = Input.Split("{", 2).First 'Get the code id of the object the block is assigned to.
-                Input = Input.Substring(RawCodeID.Length - 1) 'Split off the extracted data.
+                Input = Input.Substring(RawCodeID.Length + 1) 'Split off the extracted data.
                 Dim RawCodeBlock As String = Input
                 RawCodeID = RawCodeID.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.None).Last
                 Do While RawCodeBlock.Split("}"c, 2)(0).Contains("{"c) 'Designate subsidiary objects designated with curly brackets as such by replacing their {} with <>.
@@ -598,7 +598,7 @@ Module Program
                     Output.Add(String.Join("{", {RawCodeID, RawCodeBlock})) 'Add to List
                 End If
                 If Input.Length > RawCodeBlock.Length Then 'Split off the extracted code block.
-                    Input = Input.Substring(RawCodeBlock.Length - 1)
+                    Input = Input.Substring(RawCodeBlock.Length)
                 Else
                     Input = ""
                 End If
