@@ -593,7 +593,7 @@ Module Program
                     RawCodeBlock = String.Join(">"c, String.Join("<"c, RawCodeBlock.Split("{"c, 2)).Split("}"c, 2))
                 Loop  'Loop until no more subsidiary objects.
                 'End If
-                RawCodeBlock = RawCodeBlock.Split("}"c)(0).Replace("<", "{").Replace(">", "}") & "}" 'Get the data of this object by splitting it off of the overall code after its own { closing bracket.
+                RawCodeBlock = RawCodeBlock.Split("}"c)(0).Replace("<", "{").Replace(">", "}") & "}" 'Get the data of this object by splitting it off of the overall code after its own } closing bracket.
                 If RawCodeID.Contains("="c) Then
                     Output.Add(String.Join("{", {RawCodeID, RawCodeBlock})) 'Add to List
                 End If
