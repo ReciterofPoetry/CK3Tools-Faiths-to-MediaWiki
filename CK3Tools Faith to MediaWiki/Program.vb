@@ -201,6 +201,13 @@ Module Program
         GetLocalisation(ReligionDescs, "_desc")
         GetLocalisation(Faiths)
         GetLocalisation(FaithDescs, "_desc")
+        For Count = 0 To FaithDescs.Count - 1
+            With FaithDescs(Count)
+                If .Contains("_desc") Then
+
+                End If
+            End With
+        Next
         GetLocalisation(HolySiteCounties)
 
         For Count = 0 To Groups.Count - 1
@@ -234,7 +241,11 @@ Module Program
                 Dim ChildReligions As List(Of String) = FamilyReligions(Count) 'Get its religions.
                 For Each Religion In ChildReligions
                     SW.WriteLine($"=== {Religions(Religion)} ===") 'Religion name, smaller header.
-                    SW.WriteLine($"{vbCrLf}{ReligionDescs(Religion).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}{vbCrLf}") 'Religion description. Last minute localisation: add in the new lines as Carriage Return Line Feeds. This will be transferred to the GetLocalisation function at some point.
+                    If Not ReligionDescs(Religion).EndsWith("_desc") Then
+                        SW.WriteLine($"{vbCrLf}{ReligionDescs(Religion).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}{vbCrLf}") 'Religion description. Last minute localisation: add in the new lines as Carriage Return Line Feeds. This will be transferred to the GetLocalisation function at some point.
+                    Else
+                        SW.WriteLine($"| No religion description found for this religion.") 'If there is no religion desc, then output an error note.
+                    End If
                     SW.WriteLine("<tabber>") 'Tabber/TabberNeue code.
                     SW.WriteLine(" Game information=") 'First tab: Game Information.
                     SW.WriteLine("{| class=""wikitable sortable""") 'Table markdown, start.
@@ -302,7 +313,13 @@ Module Program
                     For Each Faith In ChildFaiths
                         SW.WriteLine("|-") 'New row.
                         SW.WriteLine($"| style=""text-align: center;"" | {Faiths(Faith)}<br>[[File:{FaithIcons(Faith)}.png|100px]]") 'Faith name as well as a link to its icon.
-                        SW.WriteLine($"| {FaithDescs(Faith).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}") 'Faith description.
+                        If Not FaithDescs(Faith).EndsWith("_desc") Then
+                            SW.WriteLine($"| {FaithDescs(Faith).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}") 'Faith description.
+                        ElseIf Not ReligionDescs(Religion).EndsWith("_desc") Then
+                            SW.WriteLine($"| {ReligionDescs(Religion).Replace("/n", vbCrLf).Replace("\n", vbCrLf).Replace("/", "").Replace("\", "")}{vbCrLf}") 'Religion description is the default if there is no faith desc.
+                        Else
+                            SW.WriteLine($"| No faith description found for this faith.") 'If there is neither faith nor religion desc, then output an error note.
+                        End If
                     Next
                     SW.WriteLine("|}") 'Table markdown, end.
                     SW.WriteLine("</tabber>") 'Tabber/TabberNeue closing code.
@@ -532,8 +549,11 @@ Module Program
             Do While Input.Contains("]"c) AndAlso Input.Split("]"c, 2).First.Contains("["c) AndAlso Input.Split("]"c, 2).First.Split("["c, 2).Last.Contains("|"c) 'Loop while input loc string contains any non-parsed game concepts.
                 Dim GameConcept As String = Input.Split("["c, 2).Last.Split("|"c, 2).First 'Get the game concept object id.
                 Dim Suffix As String = "|"c & Input.Split("|"c, 2).Last.Split("]"c, 2).First & "]"c
-                If Not GameConcepts.ContainsKey(GameConcept) Then 'If it has not already been collected then...
-                    Dim ReplaceString As String
+                Dim ReplaceString As String
+                If GameConcept.Contains("Concept(") AndAlso GameConcept.Split("Concept(", 2).Last.Contains(")"c) Then 'NEW: Expression linking support.
+                    ReplaceString = GameConcept.Split("'"c)(2)
+                    Input = Input.Replace($"[{GameConcept}" & Suffix, ReplaceString)
+                ElseIf Not GameConcepts.ContainsKey(GameConcept) Then 'If it has not already been collected then...
                     If GameConceptLocalisations.Contains(GameConcept.ToLower) Then 'Find its loc in the SortedList.
                         ReplaceString = GameConceptLocalisations(GameConcept.ToLower)
                     Else
@@ -546,12 +566,8 @@ Module Program
                     Input = Input.Replace($"[{GameConcept}" & Suffix, GameConcepts(GameConcept))
                 End If
             Loop
-
-            Return Input 'Return loc.
-        Else
-            Return Input 'Redundancy in case a loc was falsely found to contain a game concept.
         End If
-
+        Return Input 'Return loc.
     End Function
     Function DeReference(Input As String) As String
         If Input.Contains("$"c) Then
