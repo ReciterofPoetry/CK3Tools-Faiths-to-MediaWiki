@@ -551,7 +551,7 @@ Module Program
                 Dim Suffix As String = "|"c & Input.Split("|"c, 2).Last.Split("]"c, 2).First & "]"c
                 Dim ReplaceString As String
                 If GameConcept.Contains("Concept(") AndAlso GameConcept.Split("Concept(", 2).Last.Contains(")"c) Then 'NEW: Expression linking support.
-                    ReplaceString = GameConcept.Split("'"c)(2)
+                    ReplaceString = GameConcept.Split("'"c)(3)
                     Input = Input.Replace($"[{GameConcept}" & Suffix, ReplaceString)
                 ElseIf Not GameConcepts.ContainsKey(GameConcept) Then 'If it has not already been collected then...
                     If GameConceptLocalisations.Contains(GameConcept.ToLower) Then 'Find its loc in the SortedList.
