@@ -32,8 +32,16 @@ Module Program
             Text.RemoveAll(Function(x) Not x.Contains("{"c) OrElse x.StartsWith("#"c)) 'Remove any that don't seem to contain any data by searching for lack of curly brackets.
 
             For Each Block In Text
+                'If Block.Contains("#"c) Then
+                '    Block = String.Join(vbCrLf, Block.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.None).ToList.FindAll(Function(x) Not x.TrimStart.StartsWith("#"c)))
+                'End If
+
                 If Block.Contains("#"c) Then
-                    Block = String.Join(vbCrLf, Block.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.None).ToList.FindAll(Function(x) Not x.TrimStart.StartsWith("#"c)))
+                    Do
+                        Dim CommentStart As Integer = Block.IndexOf("#"c)
+                        Dim CommentEnd As Integer = Block.IndexOfAny({vbCrLf, vbCr, vbLf}, CommentStart)
+                        Block = Block.Remove(CommentStart, CommentEnd - CommentStart)
+                    Loop While Block.Contains("#"c)
                 End If
 
                 Dim Religion As String = Block.Split({"="c, "{"c}, 2)(0).Trim.Split({vbCrLf, vbTab, " "c}, StringSplitOptions.None).Last 'Get the raw id of the religion.
@@ -255,6 +263,13 @@ Module Program
                     For Each Faith In ChildFaiths 'Start writing each faith.
                         SW.WriteLine("|-") 'New row.
                         SW.WriteLine($"| style=""text-align: center;"" | {Faiths(Faith)}<br>[[File:{FaithIcons(Faith)}.png|100px]]") 'Faith name then link to its icon.
+                        'If File.Exists($"{BaseDir}\gfx\interface\icons\faith\{FaithIcons(Faith)}.dds") Then
+                        '    File.Copy($"{BaseDir}\gfx\interface\icons\faith\{FaithIcons(Faith)}.dds", $"{Environment.GetFolderPath(Environment.SpecialFolder.Desktop)}\Faith icons\{FaithIcons(Faith)}.dds", True)
+                        'ElseIf File.Exists($"{GameDir}\gfx\interface\icons\faith\{FaithIcons(Faith)}.dds") Then
+                        '    File.Copy($"{GameDir}\gfx\interface\icons\faith\{FaithIcons(Faith)}.dds", $"{Environment.GetFolderPath(Environment.SpecialFolder.Desktop)}\Faith icons\{FaithIcons(Faith)}.dds", True)
+                        'Else
+                        '    Debug.Print($"{BaseDir}\gfx\interface\icons\faith\{FaithIcons(Faith)}.dds")
+                        'End If
                         SW.WriteLine("| ") 'New cell.
                         Dim ChildTenets As List(Of String) = FaithDoctrines(Faith).FindAll(Function(x) x.StartsWith("t:"))
                         For Each Tenet In ChildTenets 'Tenets in bullet point form.
