@@ -1,6 +1,6 @@
 ﻿Imports System.IO
 Friend Module Props
-    'Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2216659254"
+    'Property BaseDir As String = "D:\Programs\Steam\steamapps\workshop\content\1158310\2326030123"
     'Property BaseDir As String = "D:\Programs\Steam\steamapps\common\Crusader Kings III\game"
     Property BaseDir As String = Environment.CurrentDirectory
     Property GameDir As String
@@ -333,6 +333,17 @@ Module Program
                 Text.RemoveAll(Function(x) Not x.Contains("{"c)) 'Remove any that don't seem to contain any data by searching for lack of curly brackets.
 
                 If Text.Exists(Function(x) x.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.Exists(Function(y) y.StartsWith(Doctrine))) Then
+                    If Text.Exists(Function(x) x.Contains("#"c)) Then
+                        For Count = 0 To Text.Count - 1
+                            If Text(Count).Contains("#"c) Then
+                                Do
+                                    Dim CommentStart As Integer = Text(Count).IndexOf("#"c)
+                                    Dim CommentEnd As Integer = Text(Count).IndexOfAny(vbCrLf.ToCharArray, CommentStart)
+                                    Text(Count) = Text(Count).Remove(CommentStart, CommentEnd - CommentStart).TrimStart(vbCrLf.ToCharArray)
+                                Loop While Text(Count).Contains("#"c)
+                            End If
+                        Next
+                    End If
                     For Each Block In Text
                         If Block.Split({vbCrLf, vbCr, vbLf}, StringSplitOptions.TrimEntries).ToList.Exists(Function(x) x.StartsWith(Doctrine)) Then
                             TextBlock = Block
@@ -350,7 +361,6 @@ Module Program
                 Tenets.Add(Doctrine)
             Else
                 Dim Category As String = TextBlock.Split({"="c, "{"c}, 2)(0).Trim.Split({vbCrLf, vbTab, " "c}, StringSplitOptions.None).Last 'Get the raw id of the category.
-
                 Dim Group As String = TextBlock.Split("group", 2)(1).Split(Chr(34), 3)(1) 'Get the raw id of the group.
 
                 If Not Groups.Contains(Group) Then 'Make sure the raw group id is added, then make the string the index.
@@ -380,12 +390,24 @@ Module Program
     Sub CollectLocalisations()
         Dim RawGameConceptLocalisations As New Dictionary(Of String, String)
 
+        Dim Langs As List(Of String) = Directory.GetDirectories(GameDir & "\localization").ToList.ConvertAll(Function(x) $"{Path.DirectorySeparatorChar}{x.Split({Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar}).Last}")
+        Langs.Add(Path.DirectorySeparatorChar & "replace")
+        Dim AltDirs As List(Of String) = Directory.EnumerateDirectories(BaseDir & "\localization").ToList.FindAll(Function(x) Not Langs.Contains($"{Path.DirectorySeparatorChar}{x.Split({Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar}).Last}"))
+
         Dim BaseFiles As List(Of String) = Directory.GetFiles(GameDir & "\localization\english", "*.yml", SearchOption.AllDirectories).ToList
         For Each TextFile In BaseFiles
             SaveLocs(TextFile, RawGameConceptLocalisations)
         Next
-        If Directory.Exists(BaseDir & "\localization\english") Then
-            LocalisationFiles = Directory.GetFiles(BaseDir & "\localization\english", "*.yml", SearchOption.AllDirectories).ToList
+        If Directory.Exists(BaseDir & "\localization\english") OrElse Not AltDirs.Count = 0 Then
+            If Directory.Exists(BaseDir & "\localization\english") Then
+                LocalisationFiles = Directory.GetFiles(BaseDir & "\localization\english", "*.yml", SearchOption.AllDirectories).ToList
+            End If
+            If Not AltDirs.Count = 0 Then
+                For Each AltDir In AltDirs
+                    LocalisationFiles = LocalisationFiles.Concat(Directory.GetFiles(AltDir, "*.yml", SearchOption.AllDirectories)).ToList
+                    'LocalisationFiles.AddRange(Directory.GetFiles(AltDir, "*.yml", SearchOption.AllDirectories))
+                Next
+            End If
         Else
             Console.WriteLine("Sorry, non-English localisation not currently supported. Press any key to exit.")
             Console.ReadKey()
@@ -606,4 +628,5 @@ Module Program
         End If
         Return Output
     End Function
+
 End Module
